@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useState } from "react";
 
 // Color palette:
@@ -260,9 +261,9 @@ export default function MontraLanding() {
       >
         <span className="montra-logo">Montra.</span>
         <nav style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <a href="#" className="nav-link">Login</a>
+          <Link href="/login" className="nav-link">Login</Link>
           <span className="nav-link" style={{ opacity: 0.3 }}>|</span>
-          <a href="#" className="nav-link">Sign up</a>
+          <Link href="/signup" className="nav-link">Sign up</Link>
         </nav>
       </header>
 
