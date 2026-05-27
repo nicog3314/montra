@@ -1,0 +1,206 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+
+enum UserRole {
+  user
+  admin
+}
+
+enum TransactionType {
+  income
+  expense
+}
+
+enum ExpenseType {
+  need
+  want
+}
+
+enum RiskStatus {
+  safe
+  suspicious
+  flagged
+}
+
+enum RuleType {
+  threshold
+  pattern
+  velocity
+}
+
+enum AlertStatus {
+  open
+  reviewed
+  dismissed
+}
+
+// CORE USER & AUTHENTICATION
+
+model User {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String              @unique
+  passwordHash      String              @map("password_hash")
+  role              UserRole            @default(user)
+  emailVerified     Boolean             @default(false) @map("email_verified")
+  loginAttempts     Int                 @default(0) @map("login_attempts")
+  lockedUntil       DateTime?           @map("locked_until")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  
+  // Relations
+  emailVerifications EmailVerification[]
+  transactions       Transaction[]
+  budgets            Budget[]
+  savingsGoals       SavingsGoal[]
+  userFraudSettings  UserFraudSettings?
+  fraudAlerts        FraudAlert[]
+  auditLogs          AuditLog[]
+
+  @@map("users")
+}
+
+model EmailVerification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verifications")
+}
+
+// CORE TRANSACTIONS & BUDGETS
+
+model Transaction {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String          @map("user_id") @db.Uuid
+  amount        Decimal         @db.Decimal(12, 2)
+  merchantName  String          @map("merchant_name")
+  category      String
+  date          DateTime        @db.Date
+  type          TransactionType
+  expenseType   ExpenseType?    @map("expense_type")
+  paymentMethod String?         @map("payment_method")
+  note          String?         @db.Text
+  riskScore     Float           @default(0.0) @map("risk_score")
+  riskStatus    RiskStatus      @default(safe) @map("risk_status")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fraudAlerts  FraudAlert[]
+
+  // Performance & filtering Indexes
+  @@index([merchantName])
+  @@index([category])
+  @@index([date])
+  @@map("transactions")
+}
+
+model Budget {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  category     String
+  monthlyLimit Decimal  @map("monthly_limit") @db.Decimal(12, 2)
+  month        Int
+  year         Int
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("budgets")
+}
+
+model SavingsGoal {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  name          String
+  targetAmount  Decimal   @map("target_amount") @db.Decimal(12, 2)
+  currentAmount Decimal   @default(0) @map("current_amount") @db.Decimal(12, 2)
+  targetDate    DateTime? @map("target_date") @db.Date
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("savings_goals")
+}
+
+// FRAUD DETECTION SYSTEM
+
+model UserFraudSettings {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String   @unique @map("user_id") @db.Uuid
+  highAmountThreshold Decimal? @map("high_amount_threshold") @db.Decimal(12, 2)
+  dailyLimit          Decimal? @map("daily_limit") @db.Decimal(12, 2)
+  aiDetectionEnabled  Boolean  @default(false) @map("ai_detection_enabled")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_fraud_settings")
+}
+
+model FraudRule {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  ruleType  RuleType @map("rule_type")
+  config    Json     @db.JsonB
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("fraud_rules")
+}
+
+model FraudAlert {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transactionId  String      @map("transaction_id") @db.Uuid
+  userId         String      @map("user_id") @db.Uuid
+  ruleTriggered  String      @map("rule_triggered")
+  riskScore      Float       @map("risk_score")
+  status         AlertStatus @default(open)
+  aiReasoning    String?     @map("ai_reasoning") @db.Text
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("fraud_alerts")
+}
+
+// ADMINISTRATIVE & AUDITING
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id") @db.Uuid
+  metadata   Json?    @db.JsonB
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
