@@ -2,7 +2,22 @@
 
 Welcome to the backend repository for **Montra**—a highly secure, AI-ready fintech and banking data architecture. This service handles user authentication, transaction ledger tracking, budgeting limits, real-time fraud alerts, and administrative audit logging.
 
-Built using **Node.js, Express, PostgreSQL, and Prisma ORM**.
+Built using **Node.js, Express, PostgreSQL, Prisma ORM, and Resend** for transactional emails.
+
+---
+
+## 📚 Tech Stack
+
+This project uses the following technologies:
+
+- **Node.js** - JavaScript server runtime
+- **Express.js** - Web application framework
+- **PostgreSQL** - Relational database
+- **Prisma ORM** - Database ORM and migration tool
+- **Resend** (v6.12.4) - Transactional email service
+- **bcrypt / bcryptjs** - Password hashing
+- **jsonwebtoken** - JWT authentication
+- **nodemailer** - Email sending utility
 
 ---
 
